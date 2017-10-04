@@ -1,0 +1,48 @@
+﻿@model Tasks.Models.HomeModel
+@{
+    ViewBag.Title = "Tasks";
+}
+
+<div class="page-header">
+    <h1>Tasks</h1>
+</div>
+
+<ul class="nav nav-pills">
+    <li role="presentation" class="active"><a href="@Url.Action("Index")">Home</a></li>
+    <li role="presentation"><a href="~/hangfire">Dashboard</a></li>
+</ul>
+
+<hr />
+
+@if (Model.Jobs.Count() > 0)
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Cron</th>
+                <th>CreatedAt</th>
+                <th>LastExecution</th>
+                <th>NextExecution</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var job in Model.Jobs)
+            {
+                <tr>
+                    <td>@job.Id</td>
+                    <td>@job.Cron</td>
+                    <td>@job.CreatedAt</td>
+                    <td>@job.LastExecution</td>
+                    <td>@job.NextExecution</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <div class="alert alert-warning" role="alert">
+        No jobs were found.
+    </div>
+}
