@@ -1,10 +1,15 @@
 ﻿using Hangfire;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web.Http;
 using Tasks.Jobs;
+using Tasks.Models;
 
 namespace Tasks.Controllers
 {
@@ -49,6 +54,27 @@ namespace Tasks.Controllers
             {
                 throw new NotImplementedException(string.Format("Job name {0} not implemented.", name));
             }
+        }
+
+        [Route("api/log")]
+        public async Task<IEnumerable<JobLogModel>> GetLogs(DateTime after)
+        {
+            var mongo = MongoRepository.Default.GetClient();
+            var db = mongo.GetDatabase("logs");
+            var col = db.GetCollection<BsonDocument>("job");
+
+            var filter = Builders<BsonDocument>.Filter;
+            var cursor = await col.FindAsync(filter.Gte(x => x["Timestamp"], after));
+            var items = await cursor.ToListAsync();
+
+            var result = items.Select(x => new JobLogModel()
+            {
+                Path = x["Path"].AsString,
+                Result = x["Result"].AsString,
+                Timestamp = x["Timestamp"].ToUniversalTime().ToLocalTime()
+            });
+
+            return result;
         }
     }
 }

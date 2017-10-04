@@ -179,6 +179,7 @@
     <Compile Include="Jobs\JobInfo.cs" />
     <Compile Include="Jobs\JobManager.cs" />
     <Compile Include="Models\HomeModel.cs" />
+    <Compile Include="Models\JobLogModel.cs" />
     <Compile Include="Models\TaskScript.cs" />
     <Compile Include="MongoRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
