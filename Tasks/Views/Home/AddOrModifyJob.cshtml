@@ -1,0 +1,204 @@
+﻿@using Tasks.Models;
+
+@model JobModel
+@{
+    ViewBag.Title = "Add/Modify Job";
+}
+
+@section styles{
+    <style>
+        .input-group-btn select {
+            border-color: #ccc;
+            margin-top: 0px;
+            margin-bottom: 0px;
+            padding-top: 7px;
+            padding-bottom: 7px;
+        }
+
+        .alert-container .alert {
+            margin-top: 20px;
+        }
+
+        #editor {
+            height: 150px;
+        }
+
+        .cron-eval-result {
+            margin-left: 5px;
+        }
+    </style>
+}
+
+<div class="page-header">
+    <h1>Tasks</h1>
+</div>
+
+<ul class="nav nav-pills">
+    <li role="presentation" class="active"><a href="@Url.Action("Index")">Home</a></li>
+    <li role="presentation"><a href="~/hangfire">Dashboard</a></li>
+</ul>
+
+<hr />
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">Add/Modify Job</h3>
+    </div>
+    <div class="panel-body">
+        @using (Html.BeginForm("AddOrModifyJob", "Home", FormMethod.Post, new { @class = "form-horizontal" }))
+        {
+            <div class="form-group">
+                <label class="control-label col-sm-1">Id</label>
+                <div class="col-sm-2">
+                    @Html.TextBoxFor(x => x.Id, new { @class = "form-control job-id" })
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-1">Cron</label>
+                <div class="col-sm-2">
+                    @Html.TextBoxFor(x => x.Cron, new { @class = "form-control job-cron" })
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-offset-1 col-sm-11">
+                    <p class="form-control-static">
+                        <button type="button" class="btn btn-default cron-eval">Eval</button>
+                        <span class="cron-eval-result"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-1">Path</label>
+                <div class="col-sm-5">
+                    <div class="input-group">
+                        <span class="input-group-btn">
+                            @Html.DropDownListFor(x => x.Method, new[] { new SelectListItem() { Text = "GET", Value = "GET" }, new SelectListItem() { Text = "POST", Value = "POST" } }, new { @class = "btn method-select" })
+                        </span>
+                        @Html.TextBoxFor(x => x.Path, new { @class = "form-control job-path" })
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group job-body-container" style="display: none;">
+                <label class="control-label col-sm-1">Body</label>
+                <div class="col-sm-5">
+                    <div class="form-control-static">
+                        <div class="panel panel-default" style="margin-bottom: 0;">
+                            <div class="panel-body" style="padding: 0;">
+                                <div id="editor"></div>
+                                @Html.HiddenFor(x => x.Body, new { @class = "job-body" })
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="col-sm-offset-1 col-sm-11">
+                    @Html.ActionLink("Cancel", "Index", null, new { @class = "btn btn-default" })
+                    <button type="submit" class="btn btn-primary submit-button">Add/Modify Job</button>
+                    <div class="alert-container"></div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section scripts{
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/ace.js"></script>
+    <script>
+        var editor = ace.edit("editor");
+        editor.setTheme("ace/theme/chrome");
+        editor.session.setMode("ace/mode/json");
+
+        var json = '@Html.Raw(Model.Body == null ? "null" : Model.Body.Replace("\r", string.Empty).Replace("\n", string.Empty).Replace("\t", string.Empty))';
+        var obj = JSON.parse(json) || { "key1": "value1", "key2": "value2" };
+        var body = JSON.stringify(obj, null, '\t');
+
+        editor.setValue(body);
+
+        toggleBody();
+
+        $(".method-select").on("change", function (e) {
+            toggleBody();
+        });
+
+        $(".submit-button").on("click", function (e) {
+            if ($(".job-id").val() === "") {
+                e.preventDefault();
+                showAlert("Id is required.", "danger")
+                return;
+            }
+
+            if ($(".job-cron").val() === "") {
+                e.preventDefault();
+                showAlert("Cron is required.", "danger")
+                return;
+            }
+
+            if ($(".job-path").val() === "") {
+                e.preventDefault();
+                showAlert("Path is required.", "danger")
+                return;
+            }
+
+            var method = $(".method-select").val();
+
+            var body = "";
+
+            if (method === "POST") {
+                if (editor.getSession().getAnnotations().length > 0) {
+                    e.preventDefault();
+                    showAlert("There is a JSON syntax issue. Please correct it and try again.", "danger")
+                    return;
+                }
+                else
+                    body = editor.getValue();
+            }
+
+            $(".job-body").val(body);
+        });
+
+        function toggleBody() {
+            var method = $(".method-select").val();
+            $(".job-body-container").toggle(method === "POST");
+            editor.clearSelection();
+        }
+
+        function showAlert(msg, type) {
+            var alert = $("<div/>", {
+                "class": "alert alert-" + type + "  alert-dismissible",
+                "role": "alert"
+            });
+
+            var btn = $("<button/>", {
+                "type": "button",
+                "class": "close",
+                "data-dismiss": "alert",
+                "aria-label": "Close"
+            }).html($("<span/>", {
+                "aria-hidden": "true"
+            }).html("&times;"));
+
+            alert
+                .append(btn)
+                .append(msg);
+
+            $(".alert-container").html(alert);
+        }
+
+        $(".cron-eval").on("click", function (e) {
+            var exp = $(".job-cron").val();
+            if (exp) {
+                $.ajax({
+                    "url": '@Url.Content("~/api/cron/eval")',
+                    "method": "get",
+                    "data": { "cron": exp }
+                }).done(function (data) {
+                    $(".cron-eval-result").html(data.Description);
+                });
+            } else {
+                $(".cron-eval-result").html("Nothing to evaluate.");
+            }
+        });
+    </script>
+}

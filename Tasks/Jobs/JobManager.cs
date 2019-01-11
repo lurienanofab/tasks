@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace Tasks.Jobs
 {
@@ -9,10 +10,12 @@ namespace Tasks.Jobs
             if (job == null)
                 throw new ArgumentNullException("job");
 
-            string result = job.Run().GetAwaiter().GetResult();
+            Stopwatch sw = Stopwatch.StartNew();
+            string result = job.Run();
+            sw.Stop();
 
             // log it
-            JobLog.AddEntry(job.Path, result);
+            JobLog.AddEntry(job.Id, job.Path, result, Convert.ToInt32(sw.ElapsedMilliseconds));
         }
     }
 }

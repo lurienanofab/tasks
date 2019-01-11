@@ -1,5 +1,6 @@
 ﻿using Hangfire;
 using Hangfire.Mongo;
+using MongoDB.Driver;
 using System.Configuration;
 using System.Web.Hosting;
 
@@ -28,7 +29,8 @@ namespace Tasks
                 var connstr = ConfigurationManager.AppSettings["MongoConnectionString"];
                 var migrationOptions = new MongoMigrationOptions { Strategy = MongoMigrationStrategy.Drop, BackupStrategy = MongoBackupStrategy.Collections };
                 var storageOptions = new MongoStorageOptions { MigrationOptions = migrationOptions };
-                JobStorage.Current = new MongoStorage(connstr, "hangfire", storageOptions);
+                var mongoSettings = MongoClientSettings.FromConnectionString(connstr);
+                JobStorage.Current = new MongoStorage(mongoSettings, "hangfire", storageOptions);
                 // Specify other options here
 
                 _backgroundJobServer = new BackgroundJobServer();

@@ -1,76 +1,98 @@
-﻿using OnlineServices.Api;
+﻿using LNF.CommonTools;
+using Newtonsoft.Json;
+using RestSharp;
+using RestSharp.Authenticators;
 using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Threading.Tasks;
-using System.Linq;
 
 namespace Tasks.Jobs
 {
     public class Job
     {
-        // a job calls a webapi using GET or POST, that is all
-        private readonly Dictionary<string, string> _data;
+        // A job calls a webapi using GET or POST, that is all.
 
+        public string Id { get; set; }
         public string Path { get; set; }
         public string Method { get; set; }
-        public IEnumerable<KeyValuePair<string, string>> Data { get { return _data; } }
+        public string Body { get; set; }
 
+        // There must be a parameterless contructor so Hangire can create a new object.
         public Job()
         {
             Path = string.Empty;
             Method = "GET";
-            _data = new Dictionary<string, string>();
         }
 
-        public Job(string path, string method = "GET")
-        {
-            if (string.IsNullOrEmpty(path))
-                throw new ArgumentNullException("path");
-
-            if (string.IsNullOrEmpty(method))
-                throw new ArgumentNullException("method");
-
-            if (!new[] { "GET", "POST" }.Contains(method))
-                throw new ArgumentOutOfRangeException("method");
-
-            Path = path;
-            Method = method;
-            _data = new Dictionary<string, string>();
-        }
-
-        public Job(string path, IDictionary<string, string> data)
+        public Job(string path)
         {
             Path = path;
-            _data = new Dictionary<string, string>(data);
+            Method = "GET";
         }
 
-        public void AddParameter(string key, object value)
+        public Job(string path, string body)
         {
-            _data.Add(key, value.ToString());
+            Path = path;
+            Method = "POST";
+            Body = body;
         }
 
-        public async Task<string> Run()
+        public string Run()
         {
-            try
+            if (string.IsNullOrEmpty(Path))
+                throw new Exception("Path cannot be empty.");
+
+            var method = GetMethod();
+            var host = Utility.GetRequiredAppSetting("ApiBaseUrl");
+            var username = Utility.GetRequiredAppSetting("BasicAuthUsername");
+            var password = Utility.GetRequiredAppSetting("BasicAuthPassword");
+
+            IRestClient client = new RestClient(host)
             {
-                using (var client = new ApiClient(ConfigurationManager.AppSettings["ApiHost"]))
+                Authenticator = new HttpBasicAuthenticator(username, password)
+            };
+
+            IRestRequest req = new RestRequest(Path, method);
+
+            if (method == RestSharp.Method.POST && !string.IsNullOrEmpty(Body))
+            {
+                req.RequestFormat = DataFormat.Json;
+                req.AddParameter("application/json", Body, ParameterType.RequestBody);
+            }
+
+            IRestResponse resp = client.Execute(req);
+
+            if (resp.IsSuccessful)
+            {
+                string result = JsonConvert.DeserializeObject<string>(resp.Content);
+                return result;
+            }
+            else
+            {
+                if (resp.ErrorException == null)
                 {
-                    string result = null;
+                    var err = JsonConvert.DeserializeAnonymousType(resp.Content, new { Message = "" });
 
-                    if (Method == "GET")
-                        result = await client.Get(Path);
-                    else if (Method == "POST")
-                        result = await client.Post(Path, _data);
+                    if (!string.IsNullOrEmpty(err.Message))
+                        throw new Exception(err.Message);
                     else
-                        throw new NotImplementedException();
-
-                    return result;
+                        throw new Exception(resp.Content);
+                }
+                else
+                {
+                    throw resp.ErrorException;
                 }
             }
-            catch (Exception ex)
+        }
+
+        private Method GetMethod()
+        {
+            switch (Method)
             {
-                return ex.Message;
+                case "GET":
+                    return RestSharp.Method.GET;
+                case "POST":
+                    return RestSharp.Method.POST;
+                default:
+                    throw new Exception($"Method not supported: {Method}.");
             }
         }
     }

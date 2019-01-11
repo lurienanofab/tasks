@@ -1,4 +1,5 @@
-﻿using Hangfire;
+﻿using Cronos;
+using Hangfire;
 using Hangfire.Storage;
 using System;
 using System.Collections.Generic;
@@ -11,11 +12,51 @@ namespace Tasks.Controllers
 {
     public class HomeController : Controller
     {
-        [Route("")]
-        public ActionResult Index(HomeModel model)
+        [HttpGet, Route("")]
+        public ActionResult Index()
         {
-            model.Jobs = GetRecurringJobs().OrderBy(x => x.Id);
+            var model = new HomeModel
+            {
+                Jobs = GetRecurringJobs()
+            };
+
             return View(model);
+        }
+
+        [HttpGet, Route("job")]
+        public ActionResult AddOrModifyJob(string id = null)
+        {
+            JobModel model = null;
+
+            if (!string.IsNullOrEmpty(id))
+                model = MongoRepository.Default.GetJob(id);
+            
+            if (model == null)
+                model = new JobModel();
+
+            return View(model);
+        }
+
+        [HttpPost, Route("job")]
+        public ActionResult AddOrModifyJob(JobModel model)
+        {
+            ValidateCron(model.Cron);
+            MongoRepository.Default.AddOrModifyJob(model);
+            return RedirectToAction("Index");
+        }
+
+        [HttpGet, Route("job/delete")]
+        public ActionResult DeleteJob(string id)
+        {
+            MongoRepository.Default.DeleteJob(id);
+            RecurringJob.RemoveIfExists(id);
+            return RedirectToAction("Index");
+        }
+
+        [HttpGet, Route("logs")]
+        public ActionResult Logs()
+        {
+            return View();
         }
 
         [AllowAnonymous, Route("poke")]
@@ -24,7 +65,7 @@ namespace Tasks.Controllers
             return Content("ouch", "text/plain");
         }
 
-        public IEnumerable<JobInfo> GetRecurringJobs()
+        private IEnumerable<JobInfo> GetRecurringJobs()
         {
             CreateJobs();
 
@@ -37,26 +78,29 @@ namespace Tasks.Controllers
                 CreatedAt = ToLocalDateTime(x.CreatedAt),
                 LastExecution = ToLocalDateTime(x.LastExecution),
                 NextExecution = ToLocalDateTime(x.NextExecution)
-            }).ToList();
+            }).OrderBy(x => x.Id).ToList();
 
             return result;
         }
 
         private void CreateJobs()
         {
-            Job job;
+            var jobs = MongoRepository.Default.GetJobs();
 
-            job = new Job("scheduler/service/task-5min");
-            RecurringJob.AddOrUpdate("FiveMinute", () => JobManager.Run(job), Cron.MinuteInterval(5), TimeZoneInfo.Local);
+            foreach(var j in jobs)
+            {
+                Job job = new Job(j.Path)
+                {
+                    Id = j.Id,
+                    Method = j.Method,
+                    Body = j.Body
+                };
 
-            job = new Job("scheduler/service/task-daily");
-            RecurringJob.AddOrUpdate("Daily", () => JobManager.Run(job), Cron.Daily(), TimeZoneInfo.Local);
-
-            job = new Job("scheduler/service/task-monthly");
-            RecurringJob.AddOrUpdate("Monthly", () => JobManager.Run(job), Cron.Monthly(), TimeZoneInfo.Local);
+                RecurringJob.AddOrUpdate(j.Id, () => JobManager.Run(job), j.Cron, TimeZoneInfo.Local);
+            }
         }
 
-        public DateTime? ToLocalDateTime(DateTime? utc)
+        private DateTime? ToLocalDateTime(DateTime? utc)
         {
             if (utc == null)
                 return null;
@@ -64,6 +108,14 @@ namespace Tasks.Controllers
                 return utc.Value.ToLocalTime();
             else
                 return utc.Value;
+        }
+
+        /// <summary>
+        /// Throws an exception if not a valid cron string.
+        /// </summary>
+        private void ValidateCron(string cron)
+        {   
+            CronExpression.Parse(cron);
         }
     }
 }

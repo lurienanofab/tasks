@@ -1,0 +1,128 @@
+﻿@using Tasks.Models;
+
+@model JobModel
+@{
+    ViewBag.Title = "Logs";
+}
+
+<div class="page-header">
+    <h1>Tasks</h1>
+</div>
+
+<ul class="nav nav-pills">
+    <li role="presentation" class="active"><a href="@Url.Action("Index")">Home</a></li>
+    <li role="presentation"><a href="~/hangfire">Dashboard</a></li>
+</ul>
+
+<hr />
+
+<div style="margin-bottom: 20px;">
+    <a href="@Url.Action("Index")" class="btn btn-default">&larr; Return</a>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">Logs</h3>
+    </div>
+    <div class="panel-body">
+        <div class="form-horizontal" style="margin-bottom: 20px;">
+            <div class="form-group">
+                <label class="control-label col-sm-1">After</label>
+                <div class="col-sm-2">
+                    <input type="text" class="form-control after" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-sm-1">Job Id</label>
+                <div class="col-sm-2">
+                    <input type="text" class="form-control job-id" />
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-offset-1 col-sm-11">
+                    <button type="button" class="btn btn-default refresh">Refresh</button>
+                    <button type="button" class="btn btn-default clear">Clear</button>
+                </div>
+            </div>
+        </div>
+
+        <table class="table table-striped logs">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Id</th>
+                    <th>Path</th>
+                    <th>Result</th>
+                    <th>Time (ms)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+@section scripts{
+    <script src="@Url.Content("//ssel-apps.eecs.umich.edu/static/lib/moment/moment.min.js")"></script>
+    <script>
+        var api = '@Url.Content("~/api/")';
+
+        loadLogs();
+
+        $(".refresh").on("click", function (e) {
+            loadLogs();
+        });
+
+        $(".clear").on("click", function (e) {
+            clearLogs();
+        });
+
+        function clearLogs() {
+            var after = moment($(".after").val());
+            var jobId = $(".job-id").val();
+
+            var data = after.isValid() ? { "after": after.format("YYYY-MM-DD") } : null;
+            if (jobId) $.extend(data, { "id": jobId });
+
+            $.ajax({
+                "url": api + "log/clear",
+                "method": "GET",
+                "data": data
+            }).done(function () {
+                $(".job-id").val("");
+                loadLogs();
+            });
+        }
+
+        function loadLogs() {
+            var after = moment($(".after").val());
+            var jobId = $(".job-id").val();
+
+            var data = { "after": after.format("YYYY-MM-DD") };
+            if (jobId) data.id = jobId;
+
+            if (after.isValid()) {
+                $.ajax({
+                    "url": api + "log",
+                    "method": "GET",
+                    "data": data
+                }).done(function (data) {
+                    var tbody = $(".logs > tbody");
+                    tbody.html("");
+
+                    $.each(data, function (index, item) {
+                        var row = $("<tr/>");
+
+                        row
+                            .append($("<td/>").html(moment(item.Timestamp).format("MM/DD/YYYY hh:mm:ss A")))
+                            .append($("<td/>").html(item.Id))
+                            .append($("<td/>").html(item.Path))
+                            .append($("<td/>").html(item.Result))
+                            .append($("<td/>").html(item.TimeTaken));
+
+                        tbody.append(row);
+                    });
+                });
+            }
+        }
+    </script>
+}

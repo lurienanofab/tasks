@@ -1,4 +1,6 @@
-﻿using System;
+﻿using LNF;
+using LNF.Impl.DependencyInjection.Web;
+using System;
 
 namespace Tasks
 {
@@ -6,7 +8,8 @@ namespace Tasks
     {
         protected void Application_Start(object sender, EventArgs e)
         {
-            HangfireBootstrapper.Instance.Start();
+            //ServiceProvider.Current = IOC.Resolver.GetInstance<ServiceProvider>();
+            //HangfireBootstrapper.Instance.Start();
         }
 
         protected void Application_End(object sender, EventArgs e)

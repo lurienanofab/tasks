@@ -1,6 +1,23 @@
-﻿@model Tasks.Models.HomeModel
+﻿@using Tasks.Models;
+
+@model HomeModel
 @{
     ViewBag.Title = "Tasks";
+}
+
+@section styles{
+    <style>
+        .job-control {
+            text-align: center;
+        }
+
+            .job-control a.delete:link,
+            .job-control a.delete:visited,
+            .job-control a.delete:hover,
+            .job-control a.delete:active {
+                color: #cc0000;
+            }
+    </style>
 }
 
 <div class="page-header">
@@ -14,11 +31,17 @@
 
 <hr />
 
+<div style="margin-bottom: 20px;">
+    @Html.ActionLink("Add/Modify Job", "AddOrModifyJob", null, new { @class = "btn btn-default" })
+    @Html.ActionLink("View Log", "Logs", null, new { @class = "btn btn-default" })
+</div>
+
 @if (Model.Jobs.Count() > 0)
 {
     <table class="table table-striped">
         <thead>
             <tr>
+                <th style="width: 80px;">&nbsp;</th>
                 <th>Id</th>
                 <th>Cron</th>
                 <th>CreatedAt</th>
@@ -30,6 +53,10 @@
             @foreach (var job in Model.Jobs)
             {
                 <tr>
+                    <td class="job-control">
+                        @Html.ActionLink("[x]", "DeleteJob", new { id = job.Id }, new { @class = "delete" })
+                        @Html.ActionLink("[e]", "AddOrModifyJob", new { id = job.Id }, new { @class = "edit" })
+                    </td>
                     <td>@job.Id</td>
                     <td>@job.Cron</td>
                     <td>@job.CreatedAt</td>

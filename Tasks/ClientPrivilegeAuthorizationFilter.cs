@@ -1,9 +1,9 @@
 ﻿using Hangfire.Annotations;
 using Hangfire.Dashboard;
-using LNF.Cache;
-using LNF.Data;
-using LNF.Models.Data;
 using Microsoft.Owin;
+using System.Linq;
+using System.Security.Principal;
+using System.Web.Security;
 
 namespace Tasks
 {
@@ -11,14 +11,20 @@ namespace Tasks
     {
         public bool Authorize([NotNull] DashboardContext context)
         {
-            var env = context.GetOwinEnvironment();
-            var owinContext = new OwinContext(env);
+            var ctx = new OwinContext(context.GetOwinEnvironment());
+            var result = IsAuthorized(ctx.Authentication.User.Identity);
+            return result;
+        }
 
-            if (owinContext.Authentication.User.Identity.IsAuthenticated)
+        public bool IsAuthorized(IIdentity ident)
+        {
+            if (ident.IsAuthenticated)
             {
-                if (CacheManager.Current.CurrentUser.HasPriv(ClientPrivilege.Developer))
+                if (ident is FormsIdentity formsIdentity)
                 {
-                    return true;
+                    var ticket = formsIdentity.Ticket;
+                    var roles = ticket.UserData.Split('|');
+                    return roles.Contains("Developer");
                 }
             }
 

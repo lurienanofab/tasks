@@ -1,26 +1,24 @@
-﻿using LNF.Cache;
-using MongoDB.Bson;
-using Newtonsoft.Json;
-using System;
+﻿using System;
+using Tasks.Models;
 
 namespace Tasks.Jobs
 {
     public static class JobLog
     {
-        public static void AddEntry(string path, string result)
+        public static void AddEntry(string id, string path, string result, long timeTaken)
         {
-            var mongo = MongoRepository.Default.GetClient();
-            var db = mongo.GetDatabase("logs");
-            var col = db.GetCollection<BsonDocument>("job");
+            // timeTaken is in milliseconds
 
-            BsonDocument document = new BsonDocument();
+            var model = new JobLogModel()
+            {
+                Id = id,
+                Path = path,
+                Result = result,
+                Timestamp = DateTime.Now,
+                TimeTaken = timeTaken
+            };
 
-            document
-                .Add("Path", new BsonString(path))
-                .Add("Result", new BsonString(result))
-                .Add("Timestamp", new BsonDateTime(DateTime.Now));
-
-            col.InsertOne(document);
+            MongoRepository.Default.AddLogEntry(model);
         }
     }
 }
